@@ -1014,7 +1014,7 @@ class VoiceApp:
                         self.speaker.speak("Приложение зед код не запущено.")
                     return
             if not text:
-                self.speaker.speak("Не расслышал.")
+                self.speaker.speak("Не расслышала.")
                 return
             self._cue("accept", "stop")   # команда принята
             hwnd = find_zcode_hwnd()
