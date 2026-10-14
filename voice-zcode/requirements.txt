@@ -4,7 +4,7 @@ av<16
 sounddevice
 numpy
 keyboard
-edge-tts
+edge-tts==7.3.1        # 7.2.8 ловит 403 от Microsoft, 7.3.1 работает
 miniaudio
 pystray
 pillow

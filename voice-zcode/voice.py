@@ -284,7 +284,7 @@ class Speaker:
             os.unlink(path)
             return True
 
-        decoded = miniaudio.decode_file(path)
+        decoded = miniaudio.decode_file(short_path(Path(path)))
         os.unlink(path)
         if self.stop_event.is_set():
             return True
@@ -340,19 +340,31 @@ class VoiceCues:
             async def one(key, text):
                 # кэш на диске: сеть нужна только при первой генерации
                 path = cache / f"{key}.mp3"
-                if not path.exists():
+                if not path.exists() or path.stat().st_size == 0:
+                    # СТРОГО ПО ОДНОЙ: параллельные скачивания edge-tts
+                    # гонятся за лимит Microsoft и часть файлов выходит
+                    # пустой (0 байт) — декодер падает
                     tmp = path.with_suffix(".tmp.mp3")
-                    await edge_tts.Communicate(text, voice).save(str(tmp))
+                    for try_i in range(3):
+                        tmp.unlink(missing_ok=True)
+                        await edge_tts.Communicate(text, voice).save(str(tmp))
+                        if tmp.stat().st_size > 0:
+                            break
+                        await asyncio.sleep(1.5)
+                    if tmp.stat().st_size == 0:
+                        raise RuntimeError(f"пустой ответ edge-tts для «{text}»")
                     tmp.replace(path)
-                d = miniaudio.decode_file(str(path))
+                # miniaudio не открывает пути с кириллицей — только 8.3/относительные
+                d = miniaudio.decode_file(short_path(path))
                 # .copy(): frombuffer держит ссылку на память декодера,
                 # которая освобождается после выхода из one() — сегфолт
                 pcm = np.frombuffer(d.samples, dtype=np.int16).copy()
                 if d.nchannels > 1:   # иначе стерео играет как моно-каша и
                     pcm = pcm.reshape(-1, d.nchannels)   # голос «падает»
                 self.cues[key] = (pcm, d.sample_rate)
-            await asyncio.gather(*(one(k, s) for k, s in self.PHRASES.items()
-                                   if k not in self.cues))
+            for k, s in self.PHRASES.items():   # последовательно, не gather
+                if k not in self.cues:
+                    await one(k, s)
 
         for attempt in range(3):   # edge-tts иногда отдаёт 403
             try:
