@@ -476,7 +476,19 @@ if IS_WIN:
         return str(p)
 
     def focus_text_input(hwnd: int) -> bool:
-        """Фокус на поле ввода внутри окна (UIA, фолбэк — клик в нижнюю зону)."""
+        """Фокус на поле ввода (Edit) внутри окна ZCode.
+
+        Успех — только настоящий EditControl: DocumentControl — это вся
+        веб-страница, и фокус может висеть в истории сообщений, тогда
+        Ctrl+V теряется. Клик-фолбэк — с той же честной проверкой."""
+        def focused_is_edit() -> bool:
+            try:
+                import uiautomation as auto
+                f = auto.GetFocusedControl()
+                return f is not None and f.ControlType == auto.ControlType.EditControl
+            except Exception:
+                return False
+
         try:
             import uiautomation as auto
             auto.uiautomation.SetGlobalSearchTimeout(3)
@@ -484,38 +496,46 @@ if IS_WIN:
                 win = auto.ControlFromHandle(hwnd)
                 if win is None:
                     break
-                for ctl in (win.DocumentControl(searchDepth=10),
-                            win.EditControl(searchDepth=10)):
-                    if ctl is not None:
-                        try:
-                            ctl.SetFocus()
-                            time.sleep(0.15)
-                            focused = auto.GetFocusedControl()
-                            if focused is None or focused.ControlType in (
-                                    auto.ControlType.EditControl,
-                                    auto.ControlType.DocumentControl):
-                                log(f"✓ фокус на поле ввода (UIA, {ctl.ControlTypeName})")
-                                return True
-                        except Exception:
-                            pass
+                # Document первым «будит» accessibility-дерево Chromium,
+                # затем ищем сам Edit (поле ввода) и фокусируем его
+                doc = win.DocumentControl(searchDepth=10)
+                edit = win.EditControl(searchDepth=15)
+                for ctl in (edit, doc):
+                    if ctl is None:
+                        continue
+                    try:
+                        ctl.SetFocus()
+                        time.sleep(0.2)
+                        if focused_is_edit():
+                            log("✓ фокус на поле ввода (UIA Edit)")
+                            return True
+                    except Exception:
+                        pass
                 if attempt == 0:
                     time.sleep(0.8)
         except ImportError:
             pass
         except Exception as e:
             log(f"! UIA не сработал: {e}")
+
         try:
             r = wt.RECT()
             user32.GetClientRect(hwnd, ctypes.byref(r))
             w, h = r.right - r.left, r.bottom - r.top
             if w > 40 and h > 120:
-                pt = wt.POINT(w // 2, h - 55)
-                user32.ClientToScreen(hwnd, ctypes.byref(pt))
-                user32.SetCursorPos(pt.x, pt.y)
-                user32.mouse_event(2, 0, 0, 0, 0)
-                user32.mouse_event(4, 0, 0, 0, 0)
-                time.sleep(0.2)
-                log("✓ фокус на поле ввода (клик в нижнюю зону)")
+                # 26px от низа — центр поля ввода ZCode (замерено по скриншоту);
+                # остальные высоты — запас на другие размеры окна
+                for dy in (26, 55, 95):
+                    pt = wt.POINT(w // 2, h - dy)
+                    user32.ClientToScreen(hwnd, ctypes.byref(pt))
+                    user32.SetCursorPos(pt.x, pt.y)
+                    user32.mouse_event(2, 0, 0, 0, 0)
+                    user32.mouse_event(4, 0, 0, 0, 0)
+                    time.sleep(0.25)
+                    if focused_is_edit():
+                        log(f"✓ фокус на поле ввода (клик, {dy}px от низа)")
+                        return True
+                log("! клик не попал в поле ввода, вставляю как есть")
                 return True
         except Exception as e:
             log(f"! клик-фолбэк не сработал: {e}")
