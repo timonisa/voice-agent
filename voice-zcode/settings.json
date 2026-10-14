@@ -1,13 +1,9 @@
 {
-  "wake_word": "рабочая голова робота",
+  "wake_word": "личная голова робота",
   "wake_enabled": true,
   "wake_verify": true,
   "wake_whisper": "small",
-  "hotkey": [
-    "cmd",
-    "option",
-    "space"
-  ],
+  "hotkey": ["ctrl", "alt", "space"],
   "hotkey_enabled": true,
   "mic_name": null,
   "whisper_size": "medium",
@@ -22,5 +18,7 @@
   "endpoint_max_sec": 30,
   "cmd_grace_ms": 350,
   "min_cmd_sec": 1.0,
-  "rms_threshold": 0.06
+  "rms_threshold": 0.01,
+  "stop_command_enabled": true,
+  "new_dialog_command_enabled": true
 }
