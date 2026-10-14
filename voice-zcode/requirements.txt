@@ -1,0 +1,20 @@
+# Проверенные версии (av>=16 несовместим с faster-whisper 1.2.1)
+faster-whisper==1.2.1
+av<16
+sounddevice
+numpy
+keyboard
+edge-tts
+miniaudio
+pystray
+pillow
+vosk
+
+# --- только Windows
+pywin32; sys_platform == "win32"
+uiautomation; sys_platform == "win32"
+pyttsx3; sys_platform == "win32"
+
+# --- только macOS
+pyobjc; sys_platform == "darwin"
+pynput; sys_platform == "darwin"

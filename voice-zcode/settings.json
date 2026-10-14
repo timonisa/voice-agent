@@ -1,0 +1,26 @@
+{
+  "wake_word": "рабочая голова робота",
+  "wake_enabled": true,
+  "wake_verify": true,
+  "wake_whisper": "small",
+  "hotkey": [
+    "cmd",
+    "option",
+    "space"
+  ],
+  "hotkey_enabled": true,
+  "mic_name": null,
+  "whisper_size": "medium",
+  "tts_voice": "ru-RU-SvetlanaNeural",
+  "agent_model": null,
+  "max_speak_chars": 1200,
+  "agent_timeout_sec": 300,
+  "sample_rate": 16000,
+  "paste_submit": true,
+  "interrupt_before_send": true,
+  "endpoint_silence_ms": 1500,
+  "endpoint_max_sec": 30,
+  "cmd_grace_ms": 350,
+  "min_cmd_sec": 1.0,
+  "rms_threshold": 0.06
+}
