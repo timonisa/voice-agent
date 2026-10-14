@@ -604,6 +604,9 @@ else:
                          interrupt: bool = False) -> bool:
         if hwnd and not focus_window(hwnd):
             return False
+        # клик по полю ввода: после активации окна из фона фокус может
+        # не встать в поле сам — тогда вставка уходит в никуда
+        focus_text_input(hwnd)
         if interrupt:
             # key code 53 = Esc: прерываем текущую генерацию, иначе Enter
             # при занятом агенте не отправляет команду
