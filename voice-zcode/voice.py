@@ -884,7 +884,10 @@ class VoiceApp:
             now = time.time()
 
             if state == "WAKE":
-                noise_ema = 0.98 * noise_ema + 0.02 * rms   # фон обновляем всегда
+                # фон меряем ТОЛЬКО тихими кусками: если обновлять всегда,
+                # сама речь тянет оценку шума вверх и порог догоняет голос
+                if rms < self._speech_rms_gate * 0.8:
+                    noise_ema = 0.98 * noise_ema + 0.02 * rms
                 # rms_threshold — настоящий нижний предел: иначе в тихой
                 # комнате порог сползает до 0.01 и запись тянут шорохи
                 self._speech_rms_gate = max(noise_ema * 2.5,
@@ -896,7 +899,9 @@ class VoiceApp:
                         and self._check_wake(chunk, rms, now):
                     log(f"◆ «{self.s['wake_word']}» услышано")
                     wpeak = max(rms_hist[-180:] or [rms])
-                    self._cmd_gate = max(0.35 * wpeak, 0.012)
+                    # 22% пика ключевой фразы: щелчки клавиш всё ещё режем,
+                    # но команду, сказанную тише фразы, уже не проглатываем
+                    self._cmd_gate = max(0.22 * wpeak, 0.010)
                     self._reset_wake()
                     self.utt_buf = []
                     self._cue("wake", "wake", wait=False, drain=False)
