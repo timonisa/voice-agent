@@ -751,17 +751,37 @@ class VoiceApp:
     def _wake_hit(self, text: str) -> bool:
         if self._WAKE_RE.search(text):
             return True
-        skels = [re.sub(r"[аеёиоуыэюяьъй]", "", w)
-                 for w in text.lower().split()]
-        # основы фразы должны встретиться в скелетах слов ПО ПОРЯДКУ
-        i = 0
-        for tgt in self._WAKE_STEM_SKELS:
-            while i < len(skels) and tgt not in skels[i]:
-                i += 1
-            if i == len(skels):
-                return False
-            i += 1
-        return bool(self._WAKE_STEM_SKELS)
+        words = text.lower().split()
+        # скелеты — только для коротких фраз: в длинном предложении любые
+        # три согласных тройки найдутся по порядцию (ложные срабатывания
+        # на фоне ролика/разговора)
+        if len(words) > 8:
+            return False
+        skels = [re.sub(r"[аеёиоуыэюяьъй]", "", w) for w in words]
+        tgts = self._WAKE_STEM_SKELS
+        n = len(tgts)
+        if n == 0:
+            return False
+
+        def one(skel: str, tgt: str) -> bool:
+            # слово-скелет равно основе или чуть длиннее (окончание), но не
+            # произвольная подстрока: «получения» больше не притягивает «лчн»
+            return tgt == skel or (tgt in skel and len(skel) - len(tgt) <= 1)
+
+        # основы должны идти ПОДРЯД, допускается один лишний союз/частицу
+        for start in range(len(skels) - n + 1):
+            i, ok = start, True
+            for tgt in tgts:
+                if i < len(skels) and one(skels[i], tgt):
+                    i += 1
+                elif i + 1 < len(skels) and one(skels[i + 1], tgt):
+                    i += 2
+                else:
+                    ok = False
+                    break
+            if ok:
+                return True
+        return False
 
     def _wake_verify_model(self):
         if self._wv_model is None:
