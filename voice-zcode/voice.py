@@ -693,6 +693,7 @@ class VoiceApp:
         self.utt_buf: list[bytes] = []    # текущая фраза для whisper-перепроверки
         self.utt_last = 0.0
         self._wv_model = None             # whisper-small (ленивая загрузка)
+        self._last_verify = 0.0           # кулдаун whisper-перепроверок
         self._WAKE_RE = self._make_wake_re(settings.get("wake_word", "личная голова робота"))
         # скелеты основ слов фразы: ловят проглоченные гласные
         # («глава» = «голова») и лишние согласные в окончаниях
@@ -787,8 +788,11 @@ class VoiceApp:
     def _wake_verify_model(self):
         if self._wv_model is None:
             from faster_whisper import WhisperModel
+            # 2 потока: перепроверки идут фоном постоянно, и ctranslate2
+            # со всеми ядрами выжигает 300%+ CPU во время роликов/разговоров
             self._wv_model = WhisperModel(self.s.get("wake_whisper", "small"),
                                           device="cpu", compute_type="int8",
+                                          cpu_threads=2,
                                           download_root=str(MODEL_DIR))
         return self._wv_model
 
@@ -833,7 +837,12 @@ class VoiceApp:
             log(f"· услышано: «{text}»")
             if self._wake_hit(text):
                 return True
-            if len(text.split()) <= 10 and self.s.get("wake_verify", True):
+            # whisper-перепроверка — не чаще раза в verify_cooldown_sec:
+            # при непрерывном фоне (ролик, разговор) они строчат каждые
+            # пару секунд и выжигают CPU, а толку от них в шуме нет
+            if len(text.split()) <= 10 and self.s.get("wake_verify", True) \
+                    and now - self._last_verify >= self.s.get("verify_cooldown_sec", 12):
+                self._last_verify = now
                 return self._verify_wake(buf)
             return False
         return False
