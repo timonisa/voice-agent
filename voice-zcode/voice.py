@@ -752,10 +752,11 @@ class VoiceApp:
         if self._WAKE_RE.search(text):
             return True
         words = text.lower().split()
-        # скелеты — только для коротких фраз: в длинном предложении любые
-        # три согласных тройки найдутся по порядцию (ложные срабатывания
-        # на фоне ролика/разговора)
-        if len(words) > 8:
+        # скелеты допускаем и в длинных фразах: во время ролика/разговора
+        # фраза пользователя вклеивается в общий финал вперемешку с чужими
+        # словами. Ложные срабатывания держит строгий матчинг: целые слова
+        # (не подстроки) и основы строго подряд.
+        if len(words) > 30:
             return False
         skels = [re.sub(r"[аеёиоуыэюяьъй]", "", w) for w in words]
         tgts = self._WAKE_STEM_SKELS
@@ -832,7 +833,7 @@ class VoiceApp:
             log(f"· услышано: «{text}»")
             if self._wake_hit(text):
                 return True
-            if len(text.split()) <= 7 and self.s.get("wake_verify", True):
+            if len(text.split()) <= 10 and self.s.get("wake_verify", True):
                 return self._verify_wake(buf)
             return False
         return False
